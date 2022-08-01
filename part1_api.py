@@ -1,3 +1,5 @@
+import cv2
+
 try:
     import os
     import json
@@ -5,15 +7,26 @@ try:
     import argparse
 
     import numpy as np
-    from scipy import signal as sg
+    from scipy import signal as sg, ndimage
     from scipy.ndimage.filters import maximum_filter
+    from scipy.signal import convolve2d
 
     from PIL import Image
+    from skimage.io import imread, imshow
+    from skimage.color import rgb2gray
+    from skimage.transform import rescale
 
     import matplotlib.pyplot as plt
 except ImportError:
     print("Need to fix the installation")
     raise
+
+
+def rgb_convolve2d(image, kernel):
+    red = convolve2d(image[:,:,0], kernel, 'valid')
+    green = convolve2d(image[:,:,1], kernel, 'valid')
+    blue = convolve2d(image[:,:,2], kernel, 'valid')
+    return np.stack([red, green, blue], axis=2)
 
 
 def find_tfl_lights(c_image: np.ndarray, **kwargs):
@@ -24,7 +37,15 @@ def find_tfl_lights(c_image: np.ndarray, **kwargs):
     :return: 4-tuple of x_red, y_red, x_green, y_green
     """
     ### WRITE YOUR CODE HERE ###
-    ### USE HELPER FUNCTIONS ###
+    image_gray = rgb2gray(c_image)
+    identity = np.array ([[1/9, 1/9, 1/9],
+                         [1/9, -8/9, 1/9],
+                         [1/9, 1/9, 1/9]])
+    conv_im1 = rgb_convolve2d (c_image, identity)
+    fig, ax = plt.subplots (1, 2, figsize=(12, 5))
+    ax[0].imshow (identity, cmap='gray')
+    ax[1].imshow (abs (conv_im1), cmap='gray')
+
     return [500, 510, 520], [500, 500, 500], [700, 710], [500, 500]
 
 
@@ -54,8 +75,43 @@ def test_find_tfl_lights(image_path, json_path=None, fig_num=None):
         what = ['traffic light']
         objects = [o for o in gt_data['objects'] if o['label'] in what]
 
-    show_image_and_gt(image, objects, fig_num)
+    # show_image_and_gt(image, objects, fig_num)
+    plt.figure (56)
+    plt.clf ()
+    h = plt.subplot (111)
+    plt.imshow (image)
+    plt.figure (57)
+    plt.clf ()
+    plt.subplot (111, sharex=h, sharey=h)
 
+    maxed_image = ndimage.maximum_filter (image, size=2)
+    gray_image = cv2.cvtColor (maxed_image, cv2.COLOR_BGR2GRAY)
+    blur_image = image
+
+    filterSize = (3, 3)
+    kernel = cv2.getStructuringElement (cv2.MORPH_RECT,
+                                        filterSize)
+
+
+    # Applying the Black-Hat operation
+    tophat_img = cv2.morphologyEx (gray_image,
+                                   cv2.MORPH_BLACKHAT,
+                                   kernel)
+    tophat_img = cv2.filter2D(tophat_img,-1,np.array ([[1/9, 1/9, 1/9],
+                          [1/9, -8/9, 1/9],
+                          [1/9, 1/9, 1/9]]))
+    five_to_five = np.array ([[-1 / 25, -1 / 25, -1 / 25, -1 / 25, -1 / 25],
+                              [-1 / 25, 1 / 25, 1 / 25, 1 / 25, -1 / 25],
+                              [-1 / 25, 1 / 25, -1 / 25, 1 / 25, -1 / 25],
+                              [-1 / 25, 1 / 25, 1 / 25, 1 / 25, -1 / 25],
+                              [-1 / 25, -1 / 25, -1 / 25, -1 / 25, -1 / 25]])
+    #result = ndimage.maximum_filter (image, size=3)
+    plt.imshow (maxed_image,cmap='gray')
+
+    """for i in range(len(tophat_img)):
+        for j in range(len(tophat_img[i])):
+            if tophat_img[i][j] > 15:
+                print(i, j)"""
     red_x, red_y, green_x, green_y = find_tfl_lights(image)
     plt.plot(red_x, red_y, 'ro', color='r', markersize=4)
     plt.plot(green_x, green_y, 'ro', color='g', markersize=4)
@@ -73,7 +129,7 @@ def main(argv=None):
     parser.add_argument("-j", "--json", type=str, help="Path to json GT for comparison")
     parser.add_argument('-d', '--dir', type=str, help='Directory to scan images in')
     args = parser.parse_args(argv)
-    default_base = "INSERT_YOUR_DIR_WITH_PNG_AND_JSON_HERE"
+    default_base = "one_image"
 
     if args.dir is None:
         args.dir = default_base
