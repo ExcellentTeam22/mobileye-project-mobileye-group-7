@@ -10,6 +10,7 @@ try:
     from scipy import signal as sg, ndimage
     from scipy.ndimage.filters import maximum_filter
     from scipy.signal import convolve2d
+    from scipy.ndimage import white_tophat
 
     from PIL import Image
     from skimage.io import imread, imshow
@@ -36,15 +37,18 @@ def find_tfl_lights(c_image: np.ndarray, **kwargs):
     :param kwargs: Whatever config you want to pass in here
     :return: 4-tuple of x_red, y_red, x_green, y_green
     """
-    ### WRITE YOUR CODE HERE ###
-    image_gray = rgb2gray(c_image)
-    identity = np.array ([[1/9, 1/9, 1/9],
-                         [1/9, -8/9, 1/9],
-                         [1/9, 1/9, 1/9]])
-    conv_im1 = rgb_convolve2d (c_image, identity)
-    fig, ax = plt.subplots (1, 2, figsize=(12, 5))
-    ax[0].imshow (identity, cmap='gray')
-    ax[1].imshow (abs (conv_im1), cmap='gray')
+
+    # first step : ok
+    maxed_image = ndimage.maximum_filter (c_image, size=4)
+    # second step: ok
+    gray_image = cv2.cvtColor (maxed_image, cv2.COLOR_BGR2GRAY)
+
+    kernel = np.ones ((11, 11), np.uint8)
+
+    tophat = cv2.morphologyEx (gray_image, cv2.MORPH_TOPHAT, kernel)
+
+    (T, threshInv) = cv2.threshold (tophat, 110, 255,
+                                    cv2.THRESH_BINARY_INV)
 
     return [500, 510, 520], [500, 500, 500], [700, 710], [500, 500]
 
@@ -52,7 +56,11 @@ def find_tfl_lights(c_image: np.ndarray, **kwargs):
 ### GIVEN CODE TO TEST YOUR IMPLENTATION AND PLOT THE PICTURES
 def show_image_and_gt(image, objs, fig_num=None):
     plt.figure(fig_num).clf()
+    h = plt.subplot (111)
     plt.imshow(image)
+    plt.figure (57)
+    plt.clf ()
+    plt.subplot (111, sharex=h, sharey=h)
     labels = set()
     if objs is not None:
         for o in objs:
@@ -84,34 +92,49 @@ def test_find_tfl_lights(image_path, json_path=None, fig_num=None):
     plt.clf ()
     plt.subplot (111, sharex=h, sharey=h)
 
-    maxed_image = ndimage.maximum_filter (image, size=2)
-    gray_image = cv2.cvtColor (maxed_image, cv2.COLOR_BGR2GRAY)
-    blur_image = image
-
-    filterSize = (3, 3)
-    kernel = cv2.getStructuringElement (cv2.MORPH_RECT,
-                                        filterSize)
-
-
+    # apply laplacian blur
     # Applying the Black-Hat operation
-    tophat_img = cv2.morphologyEx (gray_image,
-                                   cv2.MORPH_BLACKHAT,
-                                   kernel)
-    tophat_img = cv2.filter2D(tophat_img,-1,np.array ([[1/9, 1/9, 1/9],
-                          [1/9, -8/9, 1/9],
-                          [1/9, 1/9, 1/9]]))
-    five_to_five = np.array ([[-1 / 25, -1 / 25, -1 / 25, -1 / 25, -1 / 25],
-                              [-1 / 25, 1 / 25, 1 / 25, 1 / 25, -1 / 25],
-                              [-1 / 25, 1 / 25, -1 / 25, 1 / 25, -1 / 25],
-                              [-1 / 25, 1 / 25, 1 / 25, 1 / 25, -1 / 25],
-                              [-1 / 25, -1 / 25, -1 / 25, -1 / 25, -1 / 25]])
-    #result = ndimage.maximum_filter (image, size=3)
-    plt.imshow (maxed_image,cmap='gray')
+
+    # first step : ok
+    maxed_image = ndimage.maximum_filter (image, size=2)
+    # second step: ok
+    gray_image = cv2.cvtColor (maxed_image, cv2.COLOR_BGR2GRAY)
+
+    #laplacian = cv2.Laplacian (gray_image, cv2.CV_64F)
+
+    #dilation = cv2.dilate (gray_image, kernel, iterations=1)
+
+    #kernel = np.ones ((9, 9), np.uint8)
+    kernel = np.array ([[2, 2, 1, 1, 1, 2, 1, 1, 1, 2, 2],
+                        [2, 1, 1, 1, 2, -2, 2, 1, 1, 1, 2],
+                        [1, 1, 1, 2, -2, -2, -2, 2, 1, 1, 1],
+                        [1, 1, 2, -3, -3, -3, -3, -3, 2, 1, 1],
+                        [1, 2, -2, -3, -3, -3, -3, -3, -2, 2, 1],
+                        [2, -2, -2, -3, -3, -8, -3, -3, -2, -2, 2],
+                        [1, 2, -2, -3, -3, -3, -3, -3, -2, 2, 1],
+                        [1, 1, 2, -3, -3, -3, -3, -3, 2, 1, 1],
+                        [1, 1, 1, 2, -2, -2, -2, 2, 1, 1, 1],
+                        [2, 1, 1, 1, 2, -2, 2, 1, 1, 1, 2],
+                        [2, 2, 1, 1, 1, 2, 1, 1, 1, 2, 2]])
+    tophat = cv2.morphologyEx (gray_image, cv2.MORPH_TOPHAT, kernel)
+
+
+    # convert image to gray scale image
+    #maxed_image = ndimage.maximum_filter (tophat, size=3)
+    (T, threshInv) = cv2.threshold (tophat, 100, 255,
+                                    cv2.THRESH_BINARY)
+
+    """dist_transform = cv2.distanceTransform (threshInv, cv2.DIST_L2, 5)
+    ret, markers = cv2.connectedComponents (np.uint8 (dist_transform))
+    watershed = cv2.watershed (image, markers)"""
+
+    plt.imshow (tophat,cmap='gray')
 
     """for i in range(len(tophat_img)):
         for j in range(len(tophat_img[i])):
             if tophat_img[i][j] > 15:
                 print(i, j)"""
+
     red_x, red_y, green_x, green_y = find_tfl_lights(image)
     plt.plot(red_x, red_y, 'ro', color='r', markersize=4)
     plt.plot(green_x, green_y, 'ro', color='g', markersize=4)
