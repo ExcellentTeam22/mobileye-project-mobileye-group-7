@@ -147,7 +147,7 @@ def test_find_tfl_lights(image_path, json_path=None, fig_num=None):
     # for i in range(6):
     #     plt.subplot(2, 3, i + 1), plt.imshow(images[i], 'gray', vmin=0, vmax=255)
     #     plt.title(titles[i])
-    thresh = cv2.threshold(gray_image, 200, 255, cv2.THRESH_BINARY)[1]
+    thresh = cv2.threshold(tophat, 100, 255, cv2.THRESH_BINARY)[1]
     thresh = cv2.dilate(thresh, None, iterations=4)
     thresh = cv2.erode(thresh, None, iterations=2)
 
@@ -165,7 +165,7 @@ def test_find_tfl_lights(image_path, json_path=None, fig_num=None):
         numPixels = cv2.countNonZero(labelMask)
         # if the number of pixels in the component is sufficiently
         # large, then add it to our mask of "large blobs"
-        if numPixels > 200:
+        if numPixels > 100:
             mask = cv2.add(mask, labelMask)
 
     cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,
@@ -186,14 +186,14 @@ def test_find_tfl_lights(image_path, json_path=None, fig_num=None):
 
 
     plt.imshow(gray_image)
-    (w, h) = gray_image.shape[:2]
-    print(h, w)
-    # (b, g, r) = image[0, 0]  388 rows, 484 cols
-    for i in range(w):
-        for j in range(h):
-            pixel = gray_image[i, j]
-            if pixel >= 50:
-                image[i, j] = (0, 0, 255)
+    # (w, h) = gray_image.shape[:2]
+    # print(h, w)
+    # # (b, g, r) = image[0, 0]  388 rows, 484 cols
+    # for i in range(w):
+    #     for j in range(h):
+    #         pixel = gray_image[i, j]
+    #         if pixel >= 50:
+    #             image[i, j] = (0, 0, 255)
     plt.imshow(image)
 
 
