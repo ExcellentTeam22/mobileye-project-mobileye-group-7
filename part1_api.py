@@ -1,4 +1,5 @@
 import cv2
+import imutils
 
 try:
     import os
@@ -15,6 +16,10 @@ try:
     from skimage.io import imread, imshow
     from skimage.color import rgb2gray
     from skimage.transform import rescale
+    from skimage import measure
+
+
+    from imutils import contours
 
     import matplotlib.pyplot as plt
 except ImportError:
@@ -23,9 +28,9 @@ except ImportError:
 
 
 def rgb_convolve2d(image, kernel):
-    red = convolve2d(image[:,:,0], kernel, 'valid')
-    green = convolve2d(image[:,:,1], kernel, 'valid')
-    blue = convolve2d(image[:,:,2], kernel, 'valid')
+    red = convolve2d(image[:, :, 0], kernel, 'valid')
+    green = convolve2d(image[:, :, 1], kernel, 'valid')
+    blue = convolve2d(image[:, :, 2], kernel, 'valid')
     return np.stack([red, green, blue], axis=2)
 
 
@@ -38,13 +43,13 @@ def find_tfl_lights(c_image: np.ndarray, **kwargs):
     """
     ### WRITE YOUR CODE HERE ###
     image_gray = rgb2gray(c_image)
-    identity = np.array ([[1/9, 1/9, 1/9],
-                         [1/9, -8/9, 1/9],
-                         [1/9, 1/9, 1/9]])
-    conv_im1 = rgb_convolve2d (c_image, identity)
-    fig, ax = plt.subplots (1, 2, figsize=(12, 5))
-    ax[0].imshow (identity, cmap='gray')
-    ax[1].imshow (abs (conv_im1), cmap='gray')
+    identity = np.array([[1 / 9, 1 / 9, 1 / 9],
+                         [1 / 9, -8 / 9, 1 / 9],
+                         [1 / 9, 1 / 9, 1 / 9]])
+    conv_im1 = rgb_convolve2d(c_image, identity)
+    fig, ax = plt.subplots(1, 2, figsize=(12, 5))
+    ax[0].imshow(identity, cmap='gray')
+    ax[1].imshow(abs(conv_im1), cmap='gray')
 
     return [500, 510, 520], [500, 500, 500], [700, 710], [500, 500]
 
@@ -76,46 +81,108 @@ def test_find_tfl_lights(image_path, json_path=None, fig_num=None):
         objects = [o for o in gt_data['objects'] if o['label'] in what]
 
     # show_image_and_gt(image, objects, fig_num)
-    plt.figure (56)
-    plt.clf ()
-    h = plt.subplot (111)
-    plt.imshow (image)
-    plt.figure (57)
-    plt.clf ()
-    plt.subplot (111, sharex=h, sharey=h)
+    # plt.figure(56)
+    # plt.clf()
+    # h = plt.subplot(111)
+    # plt.imshow (image)
+    # plt.figure(57)
+    # plt.clf()
+    # plt.subplot(111, sharex=h, sharey=h)
 
-    maxed_image = ndimage.maximum_filter (image, size=2)
-    gray_image = cv2.cvtColor (maxed_image, cv2.COLOR_BGR2GRAY)
+
+    maxed_image = ndimage.maximum_filter(image, size=2)
+    gray_image = cv2.cvtColor(maxed_image, cv2.COLOR_BGR2GRAY)
+    blurred = cv2.GaussianBlur(gray_image, (11, 11), 0)
     blur_image = image
 
     filterSize = (3, 3)
-    kernel = cv2.getStructuringElement (cv2.MORPH_RECT,
-                                        filterSize)
-
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT,
+                                       filterSize)
 
     # Applying the Black-Hat operation
-    tophat_img = cv2.morphologyEx (gray_image,
-                                   cv2.MORPH_BLACKHAT,
-                                   kernel)
-    tophat_img = cv2.filter2D(tophat_img,-1,np.array ([[1/9, 1/9, 1/9],
-                          [1/9, -8/9, 1/9],
-                          [1/9, 1/9, 1/9]]))
-    five_to_five = np.array ([[-1 / 25, -1 / 25, -1 / 25, -1 / 25, -1 / 25],
-                              [-1 / 25, 1 / 25, 1 / 25, 1 / 25, -1 / 25],
-                              [-1 / 25, 1 / 25, -1 / 25, 1 / 25, -1 / 25],
-                              [-1 / 25, 1 / 25, 1 / 25, 1 / 25, -1 / 25],
-                              [-1 / 25, -1 / 25, -1 / 25, -1 / 25, -1 / 25]])
-    #result = ndimage.maximum_filter (image, size=3)
-    plt.imshow (maxed_image,cmap='gray')
+    tophat_img = cv2.morphologyEx(gray_image,
+                                  cv2.MORPH_BLACKHAT,
+                                  kernel)
+    tophat_img = cv2.filter2D(tophat_img, -1, np.array([[1 / 9, 1 / 9, 1 / 9],
+                                                        [1 / 9, -8 / 9, 1 / 9],
+                                                        [1 / 9, 1 / 9, 1 / 9]]))
+
+    five_to_five = np.array([[-1 / 25, -1 / 25, -1 / 25, -1 / 25, -1 / 25],
+                             [-1 / 25, 1 / 25, 1 / 25, 1 / 25, -1 / 25],
+                             [-1 / 25, 1 / 25, -1 / 25, 1 / 25, -1 / 25],
+                             [-1 / 25, 1 / 25, 1 / 25, 1 / 25, -1 / 25],
+                             [-1 / 25, -1 / 25, -1 / 25, -1 / 25, -1 / 25]])
+
+    # result = ndimage.maximum_filter (image, size=3)
+
+    # ret, thresh1 = cv2.threshold(image, 230, 255, cv2.THRESH_BINARY)
+    # ret, thresh2 = cv2.threshold(image, 230, 255, cv2.THRESH_BINARY_INV)
+    # ret, thresh3 = cv2.threshold(image, 230, 255, cv2.THRESH_TRUNC)
+    # ret, thresh4 = cv2.threshold(image, 230, 255, cv2.THRESH_TOZERO)
+    # ret, thresh5 = cv2.threshold(image, 230, 255, cv2.THRESH_TOZERO_INV)
+    # titles = ['Original Image', 'BINARY', 'BINARY_INV', 'TRUNC', 'TOZERO', 'TOZERO_INV']
+    # images = [image, thresh1, thresh2, thresh3, thresh4, thresh5]
+    # for i in range(6):
+    #     plt.subplot(2, 3, i + 1), plt.imshow(images[i], 'gray', vmin=0, vmax=255)
+    #     plt.title(titles[i])
+
+    thresh = cv2.threshold(blurred, 200, 255, cv2.THRESH_BINARY)[1]
+    thresh = cv2.dilate(thresh, None, iterations=4)
+    thresh = cv2.erode(thresh, None, iterations=2)
+
+    labels = measure.label(thresh, connectivity=2, background=0)
+    mask = np.zeros(thresh.shape, dtype="uint8")
+    # loop over the unique components
+    for label in np.unique(labels):
+        # if this is the background label, ignore it
+        if label == 0:
+            continue
+        # otherwise, construct the label mask and count the
+        # number of pixels
+        labelMask = np.zeros(thresh.shape, dtype="uint8")
+        labelMask[labels == label] = 255
+        numPixels = cv2.countNonZero(labelMask)
+        # if the number of pixels in the component is sufficiently
+        # large, then add it to our mask of "large blobs"
+        if numPixels > 200:
+            mask = cv2.add(mask, labelMask)
+
+    cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,
+                            cv2.CHAIN_APPROX_SIMPLE)
+    cnts = imutils.grab_contours(cnts)
+    cnts = contours.sort_contours(cnts)[0]
+    # loop over the contours
+    for (i, c) in enumerate(cnts):
+        # draw the bright spot on the image
+        (x, y, w, h) = cv2.boundingRect(c)
+        ((cX, cY), radius) = cv2.minEnclosingCircle(c)
+        cv2.circle(image, (int(cX), int(cY)), int(radius),
+                   (0, 0, 255), 3)
+        cv2.putText(image, "#{}".format(i + 1), (x, y - 15),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 255), 2)
+    # show the output image
+    cv2.imshow("Image", image)
+
+
+    plt.imshow(gray_image)
+    (w, h) = gray_image.shape[:2]
+    print(h, w)
+    # (b, g, r) = image[0, 0]  388 rows, 484 cols
+    for i in range(w):
+        for j in range(h):
+            pixel = gray_image[i, j]
+            if pixel >= 50:
+                image[i, j] = (0, 0, 255)
+    plt.imshow(image)
+    # print("Pixel at (0, 0) - Red: {}, Green: {}, Blue: {}".format(r, g, b))
 
     """for i in range(len(tophat_img)):
         for j in range(len(tophat_img[i])):
             if tophat_img[i][j] > 15:
                 print(i, j)"""
-    red_x, red_y, green_x, green_y = find_tfl_lights(image)
-    plt.plot(red_x, red_y, 'ro', color='r', markersize=4)
-    plt.plot(green_x, green_y, 'ro', color='g', markersize=4)
-
+    # red_x, red_y, green_x, green_y = find_tfl_lights(image)
+    # plt.plot(red_x, red_y, 'ro', color='r', markersize=4)
+    # plt.plot(green_x, green_y, 'ro', color='g', markersize=4)
 
 
 def main(argv=None):
