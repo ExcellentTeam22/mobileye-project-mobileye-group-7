@@ -1,5 +1,6 @@
 import cv2
 import imutils
+import pandas as pd
 
 try:
     import os
@@ -147,10 +148,10 @@ def test_find_tfl_lights(image_path, json_path=None, fig_num=None):
     # plt.figure()
     # plt.imshow(tophat)
 
-    max_suppression(image, tophat)
+    max_suppression(image, tophat, image_path)
 
 
-def max_suppression(image, filtered_image):
+def max_suppression(image, filtered_image, image_path):
 
     thresh = cv2.threshold(filtered_image, 100, 255, cv2.THRESH_BINARY)[1]
     thresh = cv2.erode(thresh, None, iterations=1)
@@ -177,17 +178,21 @@ def max_suppression(image, filtered_image):
                             cv2.CHAIN_APPROX_SIMPLE)
     cnts = imutils.grab_contours(cnts)
     cnts = contours.sort_contours(cnts)[0]
+    tfl_cords = []
     # loop over the contours
     for (i, c) in enumerate(cnts):
         # draw the bright spot on the image
         (x, y, w, h) = cv2.boundingRect(c)
         ((cX, cY), radius) = cv2.minEnclosingCircle(c)
+        tfl_cords.append((int(cX), int(cY), (255, 0, 255), image_path))
         b, g, r = image[int(cY), int(cX)]
         print(r)
         if r >= 200:
             cv2.circle(image, (int(cX), int(cY)), int(radius), (0, 0, 255), 3)
             cv2.putText(image, "#{}".format(i + 1), (x, y - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 255), 2)
     plt.imshow(image)
+    df = pd.DataFrame(tfl_cords, columns=['x', 'y', 'color', 'image path'])
+    print(df)
 
 
 # def apply_red_filter(image):
