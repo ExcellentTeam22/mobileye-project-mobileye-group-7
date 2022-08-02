@@ -126,8 +126,8 @@ def test_find_tfl_lights(image_path, json_path=None, fig_num=None):
 
     # convert image to gray scale image
     #maxed_image = ndimage.maximum_filter (tophat, size=3)
-    (T, threshInv) = cv2.threshold (tophat, 100, 255,
-                                    cv2.THRESH_BINARY)
+    # (T, threshInv) = cv2.threshold (tophat, 100, 255,
+    #                                 cv2.THRESH_BINARY)
 
     """dist_transform = cv2.distanceTransform (threshInv, cv2.DIST_L2, 5)
     ret, markers = cv2.connectedComponents (np.uint8 (dist_transform))
@@ -135,14 +135,71 @@ def test_find_tfl_lights(image_path, json_path=None, fig_num=None):
 
     plt.imshow (tophat,cmap='gray')
 
-    """for i in range(len(tophat_img)):
-        for j in range(len(tophat_img[i])):
-            if tophat_img[i][j] > 15:
-                print(i, j)"""
 
-    red_x, red_y, green_x, green_y = find_tfl_lights(image)
-    plt.plot(red_x, red_y, 'ro', color='r', markersize=4)
-    plt.plot(green_x, green_y, 'ro', color='g', markersize=4)
+    # result = ndimage.maximum_filter (image, size=3)
+    # ret, thresh1 = cv2.threshold(image, 230, 255, cv2.THRESH_BINARY)
+    # ret, thresh2 = cv2.threshold(image, 230, 255, cv2.THRESH_BINARY_INV)
+    # ret, thresh3 = cv2.threshold(image, 230, 255, cv2.THRESH_TRUNC)
+    # ret, thresh4 = cv2.threshold(image, 230, 255, cv2.THRESH_TOZERO)
+    # ret, thresh5 = cv2.threshold(image, 230, 255, cv2.THRESH_TOZERO_INV)
+    # titles = ['Original Image', 'BINARY', 'BINARY_INV', 'TRUNC', 'TOZERO', 'TOZERO_INV']
+    # images = [image, thresh1, thresh2, thresh3, thresh4, thresh5]
+    # for i in range(6):
+    #     plt.subplot(2, 3, i + 1), plt.imshow(images[i], 'gray', vmin=0, vmax=255)
+    #     plt.title(titles[i])
+    thresh = cv2.threshold(gray_image, 200, 255, cv2.THRESH_BINARY)[1]
+    thresh = cv2.dilate(thresh, None, iterations=4)
+    thresh = cv2.erode(thresh, None, iterations=2)
+
+    labels = measure.label(thresh, connectivity=2, background=0)
+    mask = np.zeros(thresh.shape, dtype="uint8")
+    # loop over the unique components
+    for label in np.unique(labels):
+        # if this is the background label, ignore it
+        if label == 0:
+            continue
+        # otherwise, construct the label mask and count the
+        # number of pixels
+        labelMask = np.zeros(thresh.shape, dtype="uint8")
+        labelMask[labels == label] = 255
+        numPixels = cv2.countNonZero(labelMask)
+        # if the number of pixels in the component is sufficiently
+        # large, then add it to our mask of "large blobs"
+        if numPixels > 200:
+            mask = cv2.add(mask, labelMask)
+
+    cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,
+                            cv2.CHAIN_APPROX_SIMPLE)
+    cnts = imutils.grab_contours(cnts)
+    cnts = contours.sort_contours(cnts)[0]
+    # loop over the contours
+    for (i, c) in enumerate(cnts):
+        # draw the bright spot on the image
+        (x, y, w, h) = cv2.boundingRect(c)
+        ((cX, cY), radius) = cv2.minEnclosingCircle(c)
+        cv2.circle(image, (int(cX), int(cY)), int(radius),
+                   (0, 0, 255), 3)
+        cv2.putText(image, "#{}".format(i + 1), (x, y - 15),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 255), 2)
+    # show the output image
+    cv2.imshow("Image", image)
+
+
+    plt.imshow(gray_image)
+    (w, h) = gray_image.shape[:2]
+    print(h, w)
+    # (b, g, r) = image[0, 0]  388 rows, 484 cols
+    for i in range(w):
+        for j in range(h):
+            pixel = gray_image[i, j]
+            if pixel >= 50:
+                image[i, j] = (0, 0, 255)
+    plt.imshow(image)
+
+
+    # red_x, red_y, green_x, green_y = find_tfl_lights(image)
+    # plt.plot(red_x, red_y, 'ro', color='r', markersize=4)
+    # plt.plot(green_x, green_y, 'ro', color='g', markersize=4)
 
 
 
