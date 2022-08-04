@@ -1,21 +1,18 @@
-import cv2
-
 try:
+    from numpy import dtype
+    from tabulate import tabulate
+    from skimage.feature import peak_local_max
     import os
     import json
     import glob
     import argparse
-
+    import cv2
     import numpy as np
-    from scipy import signal as sg, ndimage
-    from scipy.ndimage.filters import maximum_filter
-    from scipy.signal import convolve2d
-    from scipy.ndimage import white_tophat
-
+    from scipy import signal as sg
+    from scipy.ndimage import convolve
+    import scipy.ndimage as filters
+    from scipy import misc
     from PIL import Image
-    from skimage.io import imread, imshow
-    from skimage.color import rgb2gray
-    from skimage.transform import rescale
 
     import matplotlib.pyplot as plt
 except ImportError:
@@ -23,11 +20,10 @@ except ImportError:
     raise
 
 
-def rgb_convolve2d(image, kernel):
-    red = convolve2d(image[:,:,0], kernel, 'valid')
-    green = convolve2d(image[:,:,1], kernel, 'valid')
-    blue = convolve2d(image[:,:,2], kernel, 'valid')
-    return np.stack([red, green, blue], axis=2)
+def rgb_convolve(image, kernel):
+    red = convolve(image[:, :, 0], kernel)
+    green = convolve(image[:, :, 1], kernel)
+    return red, green
 
 
 def find_tfl_lights(c_image: np.ndarray, **kwargs):
@@ -38,44 +34,58 @@ def find_tfl_lights(c_image: np.ndarray, **kwargs):
     :return: 4-tuple of x_red, y_red, x_green, y_green
     """
 
-    # first step : ok
-    maxed_image = ndimage.maximum_filter (c_image, size=4)
-    # second step: ok
-    gray_image = cv2.cvtColor (maxed_image, cv2.COLOR_BGR2GRAY)
+    # Our kernel, we used 5*5 kernel for better run time.
+    kernel = (1 / 13) * np.array([[-1, -1, -1, -1, -1],
+                                 [-1, -1, 4, -1, -1],
+                                 [-1, 4, 4, 4, -1],
+                                 [-1, -1, 4, -1, -1],
+                                 [-1, -1, -1, -1, -1]])
 
-    kernel = np.ones ((11, 11), np.uint8)
+    # convolve the red and green dimensions of the image.
+    conv_im1, conv_im2 = rgb_convolve(c_image, kernel)
 
-    tophat = cv2.morphologyEx (gray_image, cv2.MORPH_TOPHAT, kernel)
+    # maximum filter operation.
+    conv_im1 = filters.maximum_filter(conv_im1, size=1)
+    conv_im2 = filters.maximum_filter(conv_im2, size=1)
 
-    (T, threshInv) = cv2.threshold (tophat, 110, 255,
-                                    cv2.THRESH_BINARY_INV)
+    # Peak the local maximums after normalizing with Maximum filter method.
+    red_image = peak_local_max(conv_im1, min_distance=15, threshold_abs=0.2, threshold_rel=0.2)
+    green_image = peak_local_max(conv_im2, min_distance=15, threshold_abs=0.28, threshold_rel=0.29)
 
-    return [500, 510, 520], [500, 500, 500], [700, 710], [500, 500]
+    return red_image, green_image
 
 
 ### GIVEN CODE TO TEST YOUR IMPLENTATION AND PLOT THE PICTURES
 def show_image_and_gt(image, objs, fig_num=None):
-    plt.figure(fig_num).clf()
-    h = plt.subplot (111)
-    plt.imshow(image)
-    plt.figure (57)
-    plt.clf ()
-    plt.subplot (111, sharex=h, sharey=h)
     labels = set()
     if objs is not None:
         for o in objs:
             poly = np.array(o['polygon'])[list(np.arange(len(o['polygon']))) + [0]]
-            plt.plot(poly[:, 0], poly[:, 1], 'r', label=o['label'])
+            plt.plot(poly[:, 0], poly[:, 1], 'r', label=['label'])
             labels.add(o['label'])
         if len(labels) > 1:
             plt.legend()
 
 
-def test_find_tfl_lights(image_path, json_path=None, fig_num=None):
+def filter_method(red_list, green_list, image, data, image_path):
+    for i in red_list:
+        if image[i[0]][i[1]][0] > image[i[0]][i[1]][1] + 0.05 and image[i[0]][i[1]][0] > image[i[0]][i[1]][2] + 0.05:
+            plt.plot(i[1], i[0], '+', color='r', markersize=5)
+            data.append(["Red", (i[1], i[0]), image_path])
+
+        print(i[1], i[0])
+    for i in green_list:
+        if image[i[0]][i[1]][1] > image[i[0]][i[1]][0] + 0.03 and image[i[0]][i[1]][1] > image[i[0]][i[1]][2]:
+            plt.plot(i[1], i[0], '+', color='g', markersize=5)
+            data.append(["Green", (i[1], i[0]), image_path])
+
+
+def test_find_tfl_lights(image_path, data, json_path=None, fig_num=None):
     """
     Run the attention code
     """
-    image = np.array(Image.open(image_path))
+    # image = np.array(Image.open(image_path))
+    image = plt.imread(image_path)
     if json_path is None:
         objects = None
     else:
@@ -83,62 +93,27 @@ def test_find_tfl_lights(image_path, json_path=None, fig_num=None):
         what = ['traffic light']
         objects = [o for o in gt_data['objects'] if o['label'] in what]
 
-    # show_image_and_gt(image, objects, fig_num)
-    plt.figure (56)
-    plt.clf ()
-    h = plt.subplot (111)
-    plt.imshow (image)
-    plt.figure (57)
-    plt.clf ()
-    plt.subplot (111, sharex=h, sharey=h)
+    show_image_and_gt(image, objects, fig_num)
 
-    # apply laplacian blur
-    # Applying the Black-Hat operation
+    plt.figure(56)
+    plt.clf()
+    h = plt.subplot(111)
+    plt.imshow(image)
+    plt.figure(57)
+    plt.clf()
+    plt.subplot(111, sharex=h, sharey=h)
+    plt.imshow(image)
 
-    # first step : ok
-    maxed_image = ndimage.maximum_filter (image, size=2)
-    # second step: ok
-    gray_image = cv2.cvtColor (maxed_image, cv2.COLOR_BGR2GRAY)
+    # Our filtering operation
+    red_list, green_list = find_tfl_lights(image)
 
-    #laplacian = cv2.Laplacian (gray_image, cv2.CV_64F)
+    # filter the list
+    filter_method(red_list, green_list, image, data, image_path)
 
-    #dilation = cv2.dilate (gray_image, kernel, iterations=1)
+    # Saving the Processed image to file(for debugging).
+    # plt.savefig(f"procesed_images\{image_path}")
 
-    #kernel = np.ones ((9, 9), np.uint8)
-    kernel = np.array ([[2, 2, 1, 1, 1, 2, 1, 1, 1, 2, 2],
-                        [2, 1, 1, 1, 2, -2, 2, 1, 1, 1, 2],
-                        [1, 1, 1, 2, -2, -2, -2, 2, 1, 1, 1],
-                        [1, 1, 2, -3, -3, -3, -3, -3, 2, 1, 1],
-                        [1, 2, -2, -3, -3, -3, -3, -3, -2, 2, 1],
-                        [2, -2, -2, -3, -3, -8, -3, -3, -2, -2, 2],
-                        [1, 2, -2, -3, -3, -3, -3, -3, -2, 2, 1],
-                        [1, 1, 2, -3, -3, -3, -3, -3, 2, 1, 1],
-                        [1, 1, 1, 2, -2, -2, -2, 2, 1, 1, 1],
-                        [2, 1, 1, 1, 2, -2, 2, 1, 1, 1, 2],
-                        [2, 2, 1, 1, 1, 2, 1, 1, 1, 2, 2]])
-    tophat = cv2.morphologyEx (gray_image, cv2.MORPH_TOPHAT, kernel)
-
-
-    # convert image to gray scale image
-    #maxed_image = ndimage.maximum_filter (tophat, size=3)
-    (T, threshInv) = cv2.threshold (tophat, 100, 255,
-                                    cv2.THRESH_BINARY)
-
-    """dist_transform = cv2.distanceTransform (threshInv, cv2.DIST_L2, 5)
-    ret, markers = cv2.connectedComponents (np.uint8 (dist_transform))
-    watershed = cv2.watershed (image, markers)"""
-
-    plt.imshow (tophat,cmap='gray')
-
-    """for i in range(len(tophat_img)):
-        for j in range(len(tophat_img[i])):
-            if tophat_img[i][j] > 15:
-                print(i, j)"""
-
-    red_x, red_y, green_x, green_y = find_tfl_lights(image)
-    plt.plot(red_x, red_y, 'ro', color='r', markersize=4)
-    plt.plot(green_x, green_y, 'ro', color='g', markersize=4)
-
+    plt.show()
 
 
 def main(argv=None):
@@ -146,24 +121,33 @@ def main(argv=None):
     Consider looping over some images from here, so you can manually exmine the results
     Keep this functionality even after you have all system running, because you sometime want to debug/improve a module
     :param argv: In case you want to programmatically run this"""
-
+    counter = 0
     parser = argparse.ArgumentParser("Test TFL attention mechanism")
     parser.add_argument('-i', '--image', type=str, help='Path to an image')
     parser.add_argument("-j", "--json", type=str, help="Path to json GT for comparison")
     parser.add_argument('-d', '--dir', type=str, help='Directory to scan images in')
     args = parser.parse_args(argv)
-    default_base = "one_image"
+    # To do: change the directory according to your computer!!!
+    default_base = r"Test_for_me"
 
     if args.dir is None:
         args.dir = default_base
-    flist = glob.glob(os.path.join(args.dir, '*_leftImg8bit.png'))
+    flist = glob.glob(os.path.join(args.dir, '**/*_leftImg8bit.png'))
+
+    print(len(flist))
+    data = []
 
     for image in flist:
         json_fn = image.replace('_leftImg8bit.png', '_gtFine_polygons.json')
-
         if not os.path.exists(json_fn):
             json_fn = None
-        test_find_tfl_lights(image, json_fn)
+        test_find_tfl_lights(image, data, json_fn)
+
+    col_names = ["Color", "Coordinates", "Image Path"]
+    table = tabulate(data, headers=col_names, showindex="always")
+    print(table)
+    # with open('table.txt', 'w') as f:
+    #     f.write(table)
 
     if len(flist):
         print("You should now see some images, with the ground truth marked on them. Close all to quit.")
