@@ -1,5 +1,8 @@
 import cv2
 import imutils
+from imutils import contours
+from skimage import measure
+from skimage.feature import peak_local_max
 import pandas as pd
 
 try:
@@ -10,16 +13,13 @@ try:
 
     import numpy as np
     from scipy import signal as sg, ndimage
-    from scipy.ndimage.filters import maximum_filter
+    from scipy.ndimage import maximum_filter
     from scipy.signal import convolve2d
-    from scipy.ndimage import white_tophat
 
     from PIL import Image
     from skimage.io import imread, imshow
     from skimage.color import rgb2gray
     from skimage.transform import rescale
-    from skimage import measure
-    from imutils import contours
 
     import matplotlib.pyplot as plt
 except ImportError:
@@ -41,29 +41,30 @@ def find_tfl_lights(c_image: np.ndarray, **kwargs):
     :param kwargs: Whatever config you want to pass in here
     :return: 4-tuple of x_red, y_red, x_green, y_green
     """
+    ### WRITE YOUR CODE HERE ###
+    # image_gray = rgb2gray(c_image)
 
-    # first step : ok
-    maxed_image = ndimage.maximum_filter(c_image, size=4)
-    # second step: ok
-    gray_image = cv2.cvtColor(maxed_image, cv2.COLOR_BGR2GRAY)
+    identity = np.array([[-23.98, -23.98, -23.98, -23.98, -23.98, -23.98, -23.98],
+                         [-23.98, -23.98, -23.98, -23.98, -23.98, -23.98, -23.98],
+                         [-23.98, -23.98, -23.98, -23.98, -23.98, -23.98, -23.98],
+                         [-23.98, -23.98, -23.98, 189, 214, 216, -23.98],
+                         [-23.98, -23.98, 185, 192, -23.98, -23.98, -23.98],
+                         [-23.98, -23.98, -23.98, 203, -23.98, -23.98, -23.98],
+                         [-23.98, -23.98, -23.98, -23.98, -23.98, -23.98, -23.98],
+                         [-23.98, -23.98, -23.98, -23.98, -23.98, -23.98, -23.98]])
 
-    kernel = np.ones((11, 11), np.uint8)
-
-    tophat = cv2.morphologyEx(gray_image, cv2.MORPH_TOPHAT, kernel)
-
-    (T, threshInv) = cv2.threshold(tophat, 110, 255, cv2.THRESH_BINARY_INV)
+    # conv_im1 = rgb_convolve2d(c_image, identity)
+    # fig, ax = plt.subplots(1, 2, figsize=(12, 5))
+    # ax[0].imshow(identity, cmap='gray')
+    # ax[1].imshow(abs(conv_im1), cmap='gray')
 
     return [500, 510, 520], [500, 500, 500], [700, 710], [500, 500]
 
 
-# GIVEN CODE TO TEST YOUR IMPLENTATION AND PLOT THE PICTURES
+### GIVEN CODE TO TEST YOUR IMPLENTATION AND PLOT THE PICTURES
 def show_image_and_gt(image, objs, fig_num=None):
     plt.figure(fig_num).clf()
-    h = plt.subplot(111)
     plt.imshow(image)
-    plt.figure(57)
-    plt.clf()
-    plt.subplot(111, sharex=h, sharey=h)
     labels = set()
     if objs is not None:
         for o in objs:
@@ -78,7 +79,9 @@ def test_find_tfl_lights(image_path, json_path=None, fig_num=None):
     """
     Run the attention code
     """
-    image = np.array(Image.open(image_path))
+    kernel = np.array(Image.open(image_path))
+    image_to_kernal = np.array(Image.open(
+        "C:\\Users\\Shay Tobi\\PycharmProjects\\mobileye-project-mobileye-group-7\\berlin_000455_000019_leftImg8bit.png"))
     if json_path is None:
         objects = None
     else:
@@ -86,7 +89,36 @@ def test_find_tfl_lights(image_path, json_path=None, fig_num=None):
         what = ['traffic light']
         objects = [o for o in gt_data['objects'] if o['label'] in what]
 
-    show_image_and_gt(image, objects, fig_num)
+    # show_image_and_gt(image, objects, fig_num)
+
+    image = np.array(Image.open(image_path))
+
+    kernal = image_to_kernal[255: 268, 1124: 1134]
+
+    red1 = kernal[:, :, 0]
+
+    image_red = image[:, :, 0]
+
+    red2 = cv2.cvtColor(kernal, cv2.COLOR_BGR2GRAY)
+
+    kernal_normlised1 = red1 - (np.sum(red1) / red1.size)
+
+    con = sg.convolve(image_red, kernal_normlised1, mode="same")
+
+    result = (255 * (con - np.min(con)) / np.ptp(con)).astype(int)
+    print(result)
+
+    maxed_image = peak_local_max(result, min_distance=100)
+    print("maxed image is", maxed_image, len(maxed_image))
+    plt.plot(maxed_image[:, 1], maxed_image[:, 0], 'ro', color='r', markersize=4)
+    plt.figure()
+    plt.imshow(result, cmap='gray')
+
+    plt.figure()
+    plt.imshow(result)
+    plt.figure()
+    plt.imshow(red2)
+
     plt.figure(56)
     plt.clf()
     h = plt.subplot(111)
@@ -95,65 +127,16 @@ def test_find_tfl_lights(image_path, json_path=None, fig_num=None):
     plt.clf()
     plt.subplot(111, sharex=h, sharey=h)
 
-    # apply laplacian blur
-    # Applying the Black-Hat operation
+    red_x, red_y, green_x, green_y = find_tfl_lights(image)
+    plt.plot(red_x, red_y, 'ro', color='r', markersize=4)
+    plt.plot(green_x, green_y, 'ro', color='g', markersize=4)
 
-    # first step : ok
-    maxed_image = ndimage.maximum_filter(image, size=2)
-    # second step: ok
-    gray_image = cv2.cvtColor(maxed_image, cv2.COLOR_BGR2GRAY)
-
-    kernel = np.array([[2, 2, 1, 1, 1, 2, 1, 1, 1, 2, 2],
-                       [2, 1, 1, 1, 2, -2, 2, 1, 1, 1, 2],
-                       [1, 1, 1, 2, -2, -2, -2, 2, 1, 1, 1],
-                       [1, 1, 2, -3, -3, -3, -3, -3, 2, 1, 1],
-                       [1, 2, -2, -3, -3, -3, -3, -3, -2, 2, 1],
-                       [2, -2, -2, -3, -3, -8, -3, -3, -2, -2, 2],
-                       [1, 2, -2, -3, -3, -3, -3, -3, -2, 2, 1],
-                       [1, 1, 2, -3, -3, -3, -3, -3, 2, 1, 1],
-                       [1, 1, 1, 2, -2, -2, -2, 2, 1, 1, 1],
-                       [2, 1, 1, 1, 2, -2, 2, 1, 1, 1, 2],
-                       [2, 2, 1, 1, 1, 2, 1, 1, 1, 2, 2]])
-    tophat = cv2.morphologyEx(gray_image, cv2.MORPH_TOPHAT, kernel)
-
-    # convert image to gray scale image
-    # maxed_image = ndimage.maximum_filter (tophat, size=3)
-    # (T, threshInv) = cv2.threshold (tophat, 100, 255,
-    #                                 cv2.THRESH_BINARY)
-
-    """dist_transform = cv2.distanceTransform (threshInv, cv2.DIST_L2, 5)
-    ret, markers = cv2.connectedComponents (np.uint8 (dist_transform))
-    watershed = cv2.watershed (image, markers)"""
-
-    # plt.imshow(tophat, cmap='gray')
-
-    # red_x, red_y, green_x, green_y = find_tfl_lights(image)
-    # plt.plot(red_x, red_y, 'ro', color='r', markersize=4)
-    # plt.plot(green_x, green_y, 'ro', color='g', markersize=4)
-
-    kernal = image[255: 268, 1124: 1134]
-
-    red1 = kernal[:, :, 0]
-
-    image_red = image[:, :, 0]
-
-    kernal_normlised1 = red1 - (np.sum(red1) / red1.size)
-
-    con = sg.convolve(image_red, kernal_normlised1, mode="same")
-
-    result = (255 * (con - np.min(con)) / np.ptp(con)).astype(int)
-
-    # tophat = cv2.morphologyEx(image_red, cv2.MORPH_TOPHAT, kernal_normlised1)
-
-    # plt.figure()
-    # plt.imshow(tophat)
-
-    max_suppression(image, tophat, image_path)
+    result = np.float32(result)
+    max_suppression(image, result, image_path)
 
 
 def max_suppression(image, filtered_image, image_path):
-
-    thresh = cv2.threshold(filtered_image, 100, 255, cv2.THRESH_BINARY)[1]
+    thresh = cv2.threshold(filtered_image, 50, 255, cv2.THRESH_BINARY)[1]
     thresh = cv2.erode(thresh, None, iterations=1)
     thresh = cv2.dilate(thresh, None, iterations=4)
 
@@ -195,22 +178,6 @@ def max_suppression(image, filtered_image, image_path):
     print(df)
 
 
-# def apply_red_filter(image):
-#     result = image.copy()
-#     image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-#     lower = np.array([200, 0, 0])
-#     upper = np.array([255, 255, 255])
-#     mask = cv2.inRange(image, lower, upper)
-#     result = cv2.bitwise_and(result, result, mask=mask)
-#
-#     red_thresh = cv2.threshold(result, 1, 255, cv2.THRESH_BINARY)[1]
-#     # thresh = cv2.erode(red_thresh, None, iterations=1)
-#     thresh = cv2.dilate(red_thresh, None, iterations=8)
-#
-#     print(red_thresh)
-#     return red_thresh
-
-
 def main(argv=None):
     """It's nice to have a standalone tester for the algorithm.
     Consider looping over some images from here, so you can manually exmine the results
@@ -243,4 +210,7 @@ def main(argv=None):
 
 
 if __name__ == '__main__':
-    main()
+    df = pd.read_hdf('attention_results.h5')
+    pd.set_option('display.max_rows', None)
+    print(df)
+    # main()
