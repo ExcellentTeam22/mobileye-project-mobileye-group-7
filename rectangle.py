@@ -2,9 +2,9 @@ from typing import NamedTuple
 
 class Rectangle(NamedTuple):
     left: float
-    bottom: float
-    right: float
     top: float
+    right: float
+    bottom: float
 
     @property
     def width(self) -> float:

@@ -8,17 +8,19 @@ from matplotlib.patches import RegularPolygon
 from scipy import ndimage,misc
 from scipy.ndimage.interpolation import zoom
 import shapely.geometry as shg
-from matplotlib.patches import Rectangle
+#from matplotlib.patches import Rectangle
 #from pylayers.util.geomutil import *
 #from pylayers.util.plotutil import *
 import json
+from rectangle import *
 
+train_path = 'gtFine_trainvaltest/gtFine/train/'
 
 def getTrafficLight(json_data):
     traffic_lights = []
     for i in json_data['objects']:
         if i['label'] == 'traffic light':
-            plt.imshow (np.array(Image.open('leftImg8bit_trainvaltest/leftImg8bit/train/aachen/aachen_000004_000019_leftImg8bit.png')))
+            #plt.imshow (np.array(Image.open('leftImg8bit_trainvaltest/leftImg8bit/train/aachen/aachen_000004_000019_leftImg8bit.png')))
             for x in i['polygon']:
                 xmax, ymax = np.array(i['polygon']).max (axis=0)
                 xmin, ymin = np.array(i['polygon']).min (axis=0)
@@ -34,25 +36,25 @@ def check_intersection_area(traffic_lights):
         print(tfl)
 
 
-filename = "attention_results.h5"
+def get_json_fullpath(path:str):
+    json_filename = path.replace ("_leftImg8bit.png", "_gtFine_polygons.json")
+    full_path = train_path + '/' + path.split("_")[0] + '/' + json_filename
+    return  full_path
+
+filename = "attention__crop_results.h5"
 
 df = pd.read_hdf(filename)
 
-#0       aachen_000004_000019_leftImg8bit.png   238.0   416.0  0.5000    g
-#1       aachen_000004_000019_leftImg8bit.png  1992.0   288.0  0.1250    g
-
-# json : gtFine_trainvaltest/gtFine/train/aachen/aachen_000004_000019_gtFine_polygons.json
-
-image = np.array(Image.open('leftImg8bit_trainvaltest/leftImg8bit/train/aachen/aachen_000004_000019_leftImg8bit.png'))
+#image = np.array(Image.open('leftImg8bit_trainvaltest/leftImg8bit/train/aachen/aachen_000004_000019_leftImg8bit.png'))
 for row in df.itertuples():
     path = row[1]
-    x = row[2]
-    y = row [3]
+    rectangle = Rectangle(row[2],row[3],row[4],row[5])
+    #print(get_json_fullpath(path))
+    file = open(get_json_fullpath(path))
+    json_data = json.load(file)
+    traffic_light = getTrafficLight(json_data)
+    #print(traffic_light)
 
-#file = open(f'gtFine_trainvaltest/gtFine/train/aachen/{image.replace("_leftImg8bit.png", "_gtFine_polygons.json")}')
-file = open('gtFine_trainvaltest/gtFine/train/aachen/aachen_000004_000019_gtFine_polygons.json')
-json_data = json.load(file)
-
-with pd.option_context('display.max_rows', None, 'display.max_columns', None):  # more options can be specified also
-    print(df)
+#with pd.option_context('display.max_rows', None, 'display.max_columns', None):  # more options can be specified also
+#    print(df)
     #         json_fn = image.replace('_leftImg8bit.png', '_gtFine_polygons.json')
