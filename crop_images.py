@@ -5,7 +5,9 @@ import os
 
 def crop_images():
 
-    dir = os.getcwd() + "\\" + "train"
+    #dir = os.getcwd() + "\\" + "train"
+    dir = os.getcwd()+"\\"+ 'leftImg8bit_trainvaltest\\leftImg8bit\\train'
+    #print(os.getcwd())
 
     filename = "attention_results.h5"
     df = pd.read_hdf(filename)
@@ -22,9 +24,10 @@ def crop_images():
             list_for_pandas.append((row['path'], row['x'] - 20, row['y'] - 115, row['x'] + 25, row['y'] + 20, row['col']))
 
     df1 = pd.DataFrame(list_for_pandas, columns=['path', 'x0', 'y0', 'x1', 'y1', 'color'])
+    df1.to_hdf ('attention__crop_results.h5',key='df', mode='w')
 
-    # with pd.option_context('display.max_rows', None, 'display.max_columns', None):  # more options can be specified als
-    print(df1)
+    with pd.option_context('display.max_rows', None, 'display.max_columns', None):  # more options can be specified als
+        print(df1)
 
 
 
