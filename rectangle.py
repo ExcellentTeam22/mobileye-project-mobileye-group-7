@@ -1,10 +1,10 @@
 from typing import NamedTuple
 
 class Rectangle(NamedTuple):
-    left: float
-    top: float
-    right: float
-    bottom: float
+    xmin: float
+    ymin: float
+    xmax: float
+    ymax: float
 
     @property
     def width(self) -> float:
