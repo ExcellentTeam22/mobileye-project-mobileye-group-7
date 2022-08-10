@@ -72,8 +72,13 @@ class TrafficLightDataSet(Dataset):
             assert False, "What to do??"
 
         row = self.crop_data.iloc[idx]
-        image_path = os.path.join(self.crop_dir, row[C.PATH].replace('/', '\\'))
-        image = np.array(Image.open(image_path))  # Torch.read_image ?
+        try:
+            image_path = os.path.join(self.crop_dir, row[C.PATH].replace('/', '\\'))
+            image = np.array (Image.open (image_path))  # Torch.read_image ?
+        except:
+            image = np.array (Image.open (image_path))  # Torch.read_image ?
+            image_path = os.path.join (self.crop_dir, row[C.PATH].replace ('/', '\\'))
+            #'C:\\Users\\abeda\\PycharmProjects\\mobileye-project-mobileye-group-7\\ME_code\\train_demo\\attention_results\\crop\\0aachen_000001_000019_leftImg8bit.png
         return {self.IMAGE: image, self.LABEL: row[C.IS_TRUE], self.SEQ: row[self.SEQ], self.IMAGE_PATH: image_path}
 
     def get_num_tif(self):

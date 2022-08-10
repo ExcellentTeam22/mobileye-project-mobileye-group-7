@@ -17,7 +17,7 @@ filename = "ME_code/train_demo/attention_results/crop_results.h5"
 def get_colored_image_fullpath(path: str):
     colored_filename = path.replace ("_leftImg8bit.png", "_gtFine_color.png")
     #full_path = train_path + '/' + path.split ("_")[0] + '/' + colored_filename
-    return 'gtFine_trainvaltest\\gtFine\\'+ colored_filename
+    return 'gtFine_trainvaltest\\gtFine\\'+ colored_filename.replace('ME_code/','')
 
 
 def get_image_full_path(path: str):
@@ -69,7 +69,10 @@ if __name__ == '__main__':
             print('error in image crop '+ path)
     df['is_true'] = is_true_list
     df['is_ignore'] = is_ignore_list
-    df.to_hdf('crop_results.h5', 'data')
+    lst = []
+    for i in range (0, 5949):
+        lst.append (i)
+    df.to_hdf('ME_code/train_demo/attention_results/crop_results.h5', 'data')
 with pd.option_context('display.max_rows', None, 'display.max_columns', None):  # more options can be specified also
     df = pd.read_hdf (filename)
     print(df)

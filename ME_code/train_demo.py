@@ -212,8 +212,8 @@ def examine_my_results(base_dir,
 
 
 def main():
-    base_dir = r'train_demo'
-    full_images_dir = r'train'
+    base_dir = r'C:\Users\abeda\PycharmProjects\mobileye-project-mobileye-group-7\ME_code\train_demo'
+    full_images_dir = r'C:\Users\abeda\PycharmProjects\mobileye-project-mobileye-group-7\ME_code\train'
     model_name = 'my_model_final_2'
     train_dataset = TrafficLightDataSet(base_dir, full_images_dir, is_train=True)
     test_dataset = TrafficLightDataSet(base_dir, full_images_dir, is_train=False)

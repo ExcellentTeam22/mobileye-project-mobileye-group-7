@@ -35,5 +35,5 @@ models_output_dir = 'logs_and_models'
 logs_dir = 'logs'
 
 # Crop size:
-default_crop_w = 32
-default_crop_h = 96
+default_crop_w = 55
+default_crop_h = 105

@@ -35,17 +35,18 @@ def crop_images():
         if row['col'] == 'r':
             img2 = image.crop((row['x'] - 35*(1 - row['zoom']), row['y'] - 20*(1 - row['zoom']), row['x'] + 35*(1 - row['zoom']), row['y'] + 110*(1 - row['zoom'])))
             img2 = img2.resize((55, 105))
-            img2.save("train_demo\\crops\\" + str(counter) + row['path'])
-            counter += 1
+            img2.save("ME_code/train_demo/attention_results/crop" + str(counter) + row['path'])
+            full_image_path = full_dir_path + "\\" + row['path']
             list_for_pandas.append((full_image_path,str(counter) + row['path'], row['x'] - 35*(1 - row['zoom']), row['y'] - 20*(1 - row['zoom']), row['x'] + 35*(1 - row['zoom']), row['y'] + 110*(1 - row['zoom']), row['col']))
+            counter += 1
 
         elif row['col'] == 'g':
             img2 = image.crop((row['x'] - 35*(1 - row['zoom']), row['y'] - 110*(1 - row['zoom']), row['x'] + 35*(1 - row['zoom']), row['y'] + 20*(1 - row['zoom'])))
             img2 = img2.resize((55, 105))
-            img2.save("train_demo\\crops\\" + str(counter) + row['path'])
-            counter += 1
+            img2.save("ME_code/train_demo/attention_results/crop" + str(counter) + row['path'])
+            full_image_path = full_dir_path + "\\" + row['path']
             list_for_pandas.append((full_image_path,str(counter) + row['path'], row['x'] - 35*(1 - row['zoom']), row['y'] - 110*(1 - row['zoom']), row['x'] + 35*(1 - row['zoom']), row['y'] + 20*(1 - row['zoom']), row['col']))
-
+            counter += 1
     df1 = pd.DataFrame(list_for_pandas, columns=['fullPath','path', 'x0', 'y0', 'x1', 'y1', 'color'])
 
     df1.to_hdf('crop_results.h5','data')
